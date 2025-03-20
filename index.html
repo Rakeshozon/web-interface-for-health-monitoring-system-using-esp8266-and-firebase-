@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP8266 Health Monitoring Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .data-box {
+            font-size: 18px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        #alerts {
+            margin-top: 20px;
+        }
+        .alert {
+            color: red;
+            font-weight: bold;
+            margin: 5px;
+            padding: 10px;
+            border: 1px solid red;
+            border-radius: 5px;
+            background: #ffe6e6;
+        }
+        
+    </style>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // Firebase Configuration
+        var firebaseConfig = {
+            apiKey: "",
+            authDomain: "",
+            databaseURL: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        var database = firebase.database();
+
+        // ESP8266 User ID Path
+        var userId = "iPPKqz2N3wWc1hY5C74YPUqu9EG2";
+        var readingsRef = database.ref("/readings");
+        var alertsRef = database.ref("/alerts");
+
+        // Function to update dashboard with real-time data
+        readingsRef.on("value", function(snapshot) {
+            var data = snapshot.val();
+            if (!data) return;
+
+            // Format values for readability
+            document.getElementById("bpm").innerText = data.bpm !== undefined ? parseFloat(data.bpm).toFixed(1) : "N/A";
+            document.getElementById("spo2").innerText = data.spo2 !== undefined ? data.spo2 + "%" : "N/A";
+            document.getElementById("co_level").innerText = data.co_level !== undefined ? data.co_level + " PPM" : "N/A";
+            document.getElementById("water_flow").innerText = data.water_flow !== undefined ? data.water_flow + " LPM" : "N/A";
+            document.getElementById("flow_rate").innerText = data.flow_rate !== undefined ? data.flow_rate.toFixed(3) + " LPM" : "N/A";
+            document.getElementById("total_liters").innerText = data.total_liters !== undefined ? data.total_liters.toFixed(3) + " L" : "N/A";
+
+            // Fixing timestamp issue
+            let timestamp = data.timestamp ? new Date(data.timestamp * 1000).toLocaleString() : "N/A";
+            document.getElementById("timestamp").innerText = timestamp;
+
+            // Handle alerts
+            checkHealthAlerts(data);
+        });
+
+        // Function to check and send alerts
+        function checkHealthAlerts(data) {
+            var alertDiv = document.getElementById("alerts");
+            alertDiv.innerHTML = ""; // Clear previous alerts
+
+            if (data.bpm < 60) {
+                sendAlert("Low BPM detected! Possible Bradycardia.");
+            }
+            if (data.bpm > 150) {
+                sendAlert("High BPM detected! Possible Tachycardia.");
+            }
+            if (data.spo2 < 85) {
+                sendAlert("Low oxygen saturation detected! Possible hypoxemia.");
+            }
+            if (data.co_level > 500) {
+                sendAlert("High CO Level detected! Possible Carbon Monoxide Poisoning.");
+            }
+        }
+
+        // Function to send alerts to Firebase
+        function sendAlert(message) {
+            var alertDiv = document.getElementById("alerts");
+            var newAlert = document.createElement("div");
+            newAlert.innerText = message;
+            newAlert.classList.add("alert");
+            alertDiv.appendChild(newAlert);
+
+            alertsRef.push(message);
+        }
+
+        // Fetch alerts in real-time
+        alertsRef.on("child_added", function(snapshot) {
+            var alert = snapshot.val();
+            var alertDiv = document.getElementById("alerts");
+            var newAlert = document.createElement("div");
+            newAlert.innerText = alert;
+            newAlert.classList.add("alert");
+            alertDiv.appendChild(newAlert);
+        });
+    </script>
+</head>
+<body>
+    <h1>ESP8266 Health Monitoring Dashboard</h1>
+
+    <div class="data-box"><strong>BPM:</strong> <span id="bpm">Loading...</span></div>
+    <div class="data-box"><strong>SpO2 Level:</strong> <span id="spo2">Loading...</span></div>
+    <div class="data-box"><strong>CO Level:</strong> <span id="co_level">Loading...</span></div>
+    <div class="data-box"><strong>Water Flow:</strong> <span id="water_flow">Loading...</span></div>
+    <div class="data-box"><strong>Flow Rate:</strong> <span id="flow_rate">Loading...</span></div>
+    <div class="data-box"><strong>Total Liters:</strong> <span id="total_liters">Loading...</span></div>
+   
+    <h2>Alerts</h2>
+    <div id="alerts"></div>
+</body>
+</html>
